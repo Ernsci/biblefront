@@ -480,27 +480,58 @@
       userInput.value = '';
       inputArea.classList.remove('input-active');
       
-      // Show typing state
-      const typingMsg = showTyping();
-      
+      // Show typing state. Render free tier can cold-start, so hint after a wait.
+      showTyping();
+      const slowHint = setTimeout(setTypingText, 7000, 'Waking the server\u2026 this can take up to a minute.');
+
       try {
-        const res = await fetch(API_BASE + '/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text })
-        });
-        const data = await res.json();
+        const res = await postWithRetry(API_BASE + '/api/chat', { message: text });
+        clearTimeout(slowHint);
         hideTyping();
-        
+
+        if (!res.ok) {
+          let detail = '';
+          try { detail = (await res.json()).error || ''; } catch (e) {}
+          addMessage(false, detail
+            ? 'The server could not answer right now (' + detail + '). Please try again.'
+            : 'The server could not answer right now. Please try again.');
+          return;
+        }
+
+        const data = await res.json();
+
         // Add AI response
         addMessage(false, data.response, {
           reference: data.verseReference || '',
           text: data.verseText || ''
         });
       } catch (err) {
+        clearTimeout(slowHint);
         hideTyping();
-        addMessage(false, 'Error: Could not reach the server. ' + err.message);
+        addMessage(false, 'Could not reach the server. Check your connection and try again.');
       }
+    }
+
+    // POST with one retry for cold starts / transient network failures
+    async function postWithRetry(url, payload) {
+      const opts = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      };
+      try {
+        const res = await fetch(url, opts);
+        if (res.status >= 500) throw new Error('server ' + res.status);
+        return res;
+      } catch (err) {
+        await new Promise(function (r) { setTimeout(r, 1500); });
+        return fetch(url, opts);
+      }
+    }
+
+    function setTypingText(message) {
+      const el = document.querySelector('#typingMessage .message-text');
+      if (el) el.textContent = message;
     }
 
     // Enter key to send
