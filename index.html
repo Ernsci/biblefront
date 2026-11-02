@@ -563,6 +563,7 @@
 
   // Backend (Render). Change here if the service moves.
   var API_BASE = 'https://bibleback-aycd.onrender.com';
+var API_KEY = 'bible-ai-v1-secret';
 
   var thread   = document.getElementById('thread');
   var inner    = document.getElementById('inner');
@@ -684,7 +685,7 @@
   function postWithRetry(payload) {
     var opts = {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
       body: JSON.stringify(payload)
     };
     return fetch(API_BASE + '/api/chat', opts).then(function (res) {
