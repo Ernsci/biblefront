@@ -214,13 +214,39 @@
       color: var(--fg);
     }
 
-    .verse-note {
+    .message-text p {
+      margin: 0 0 0.7rem;
+    }
+
+    .message-text p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Scripture block */
+    .verse-block {
+      margin: 0 0 0.9rem;
+      padding: 0.75rem 0.9rem;
+      border-left: 3px solid var(--accent);
+      background: var(--accent-soft);
+      border-radius: 0 6px 6px 0;
+    }
+
+    .verse-ref {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 0.35rem;
+    }
+
+    .verse-text {
+      font-family: 'Merriweather', serif;
       font-style: italic;
-      font-size: 0.82rem;
-      color: var(--muted);
-      margin-top: 0.5rem;
-      padding-top: 0.5rem;
-      border-top: 1px solid var(--border);
+      font-size: 0.95rem;
+      line-height: 1.55;
+      color: var(--fg);
+      margin: 0;
     }
 
     /* Input area */
@@ -325,8 +351,9 @@
   </div>
 
   <script>
-    // Initialize first-message state
-    let firstMessage = true;
+    // Backend API base URL (Render deployment).
+    // Change this if you redeploy the backend elsewhere.
+    const API_BASE = 'https://bibleback-aycd.onrender.com';
 
     const messagesDiv = document.getElementById('messages');
     const userInput = document.getElementById('userInput');
@@ -363,19 +390,37 @@
       metaDiv.textContent = isUser ? 'You' : 'Bible AI';
       contentDiv.appendChild(metaDiv);
       
-      // Text
       const textDiv = document.createElement('div');
       textDiv.className = 'message-text';
-      textDiv.innerHTML = nl2br(text);
-      
-      // Verse note if provided
-      if (verseInfo.reference) {
-        const verseNote = document.createElement('div');
-        verseNote.className = 'verse-note';
-        verseNote.innerHTML = `📖 <strong>${verseInfo.reference}:</strong> "${verseInfo.text}"`;
-        textDiv.appendChild(verseNote);
+
+      // Verse block (rendered above the reflection, once)
+      if (!isUser && verseInfo && verseInfo.reference) {
+        const verseBlock = document.createElement('div');
+        verseBlock.className = 'verse-block';
+
+        const ref = document.createElement('div');
+        ref.className = 'verse-ref';
+        ref.textContent = verseInfo.reference;
+
+        const quote = document.createElement('blockquote');
+        quote.className = 'verse-text';
+        quote.textContent = verseInfo.text;
+
+        verseBlock.appendChild(ref);
+        verseBlock.appendChild(quote);
+        textDiv.appendChild(verseBlock);
       }
-      
+
+      // Reflection text as safe paragraphs
+      const paragraphs = String(text || '').split(/\n{1,}/).filter(function (p) {
+        return p.trim().length > 0;
+      });
+      paragraphs.forEach(function (p) {
+        const para = document.createElement('p');
+        para.textContent = p.trim();
+        textDiv.appendChild(para);
+      });
+
       contentDiv.appendChild(textDiv);
       
       // Assemble message
@@ -439,7 +484,7 @@
       const typingMsg = showTyping();
       
       try {
-        const res = await fetch('/api/chat', {
+        const res = await fetch(API_BASE + '/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: text })
